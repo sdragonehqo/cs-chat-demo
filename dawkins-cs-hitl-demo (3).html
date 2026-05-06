@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Dawkins for CS — How It Works</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161a22; --ink:#e8edf3; --muted:#8a94a6;
+    --line:#262c38; --accent:#7cc4ff; --good:#7ee2a8; --warn:#ffd479; --bad:#ff8a8a;
+    --customer:#a78bfa; --ai:#7cc4ff; --human:#7ee2a8; --memory:#ffd479;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:32px 40px 8px;border-bottom:1px solid var(--line)}
+  h1{margin:0 0 6px;font-size:28px;font-weight:600;letter-spacing:-.01em}
+  header p{margin:0;color:var(--muted);max-width:780px}
+  main{max-width:1180px;margin:0 auto;padding:28px 40px 80px}
+  section{margin:36px 0}
+  h2{font-size:20px;font-weight:600;margin:0 0 14px;letter-spacing:-.01em}
+  h3{font-size:15px;font-weight:600;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .grid{display:grid;gap:16px}
+  .grid.two{grid-template-columns:1fr 1fr}
+  @media (max-width:900px){.grid.two{grid-template-columns:1fr}}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;color:var(--muted);font-size:13px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+  /* diagram */
+  .diagram{width:100%;height:auto;display:block}
+  .diagram text{font:500 13px -apple-system,Inter,sans-serif;fill:var(--ink)}
+  .diagram .small{font-size:11px;fill:var(--muted)}
+  .node rect{rx:12;ry:12;stroke-width:1.5}
+  .node-customer rect{fill:#1b1530;stroke:var(--customer)}
+  .node-ai rect{fill:#102233;stroke:var(--ai)}
+  .node-human rect{fill:#10261c;stroke:var(--human)}
+  .node-memory rect{fill:#2a2110;stroke:var(--memory)}
+  .arrow{stroke:#4a5568;stroke-width:1.6;fill:none;marker-end:url(#ah)}
+  .arrow-loop{stroke:var(--memory);stroke-width:1.6;stroke-dasharray:4 4;fill:none;marker-end:url(#ahm)}
+  .lbl{fill:var(--muted);font-size:11px}
+
+  /* demo */
+  .demo{display:grid;grid-template-columns:1fr 360px;gap:16px}
+  @media (max-width:900px){.demo{grid-template-columns:1fr}}
+  .chat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;min-height:520px;display:flex;flex-direction:column}
+  .chat-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .chat-head .who{font-weight:600}
+  .chat-head .pill{font-size:11px;padding:3px 8px;border-radius:999px;background:#202736;color:var(--muted)}
+  .stream{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+  .msg{padding:10px 14px;border-radius:12px;max-width:88%;line-height:1.5;font-size:14.5px}
+  .msg.customer{align-self:flex-start;background:#1b1530;border:1px solid #3b2d66;color:#e6dcff}
+  .msg.draft{align-self:flex-end;background:#102233;border:1px solid #1f4a6e;color:#dcecff}
+  .msg.final{align-self:flex-end;background:#10261c;border:1px solid #1f5a3c;color:#dcf5e4}
+  .msg .who{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+  .msg .badge{font-size:10px;padding:2px 6px;border-radius:6px;margin-left:6px}
+  .badge.appr{background:#1f5a3c;color:#cfeedd}
+  .badge.edit{background:#5a4a1f;color:#ffe6b3}
+  .badge.rej{background:#5a1f1f;color:#ffd0d0}
+  .badge.auto{background:#1f4a6e;color:#dcecff}
+  .badge.help{background:#5a4a1f;color:#ffe6b3}
+  .msg.auto{align-self:flex-end;background:#10261c;border:1px solid #1f5a3c;color:#dcf5e4}
+  .msg.unsure{align-self:flex-end;background:#2a2110;border:1px solid #6b5824;color:#ffe6b3}
+  .conf-bar{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:6px}
+  .conf-bar .meter{width:60px;height:5px;border-radius:3px;background:#1d2330;overflow:hidden}
+  .conf-bar .meter span{display:block;height:100%}
+  .conf-high .meter span{background:var(--good)}
+  .conf-low .meter span{background:var(--warn)}
+  .actions{margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
+  .actions .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{font:inherit;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:#1d2330;color:var(--ink);cursor:pointer;transition:all .12s}
+  button:hover{background:#252c3d}
+  button.primary{background:#1f5a3c;border-color:#2a7a52;color:#dcf5e4}
+  button.primary:hover{background:#256a47}
+  button.warn{background:#5a4a1f;border-color:#7a6429;color:#ffe6b3}
+  button.warn:hover{background:#6a5826}
+  button.bad{background:#5a1f1f;border-color:#7a2929;color:#ffd0d0}
+  button.bad:hover{background:#6a2626}
+  textarea{width:100%;background:#0e1219;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;resize:vertical;min-height:90px;margin-top:8px}
+  .hint{color:var(--muted);font-size:12px;margin-top:8px}
+
+  /* sidebar */
+  .side{display:flex;flex-direction:column;gap:12px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .panel h4{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+  .mem-item{padding:8px 10px;border-radius:8px;background:#0f1320;border:1px solid var(--line);margin-bottom:6px;font-size:13px}
+  .mem-item .q{color:var(--muted);font-size:12px;margin-bottom:3px}
+  .stat{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+  .stat span:last-child{color:var(--good);font-variant-numeric:tabular-nums}
+  .scenarios{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .scenarios button{font-size:12px;padding:6px 10px}
+  .step-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .step-card .num{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:50%;background:#1f4a6e;color:#dcecff;font-weight:600;margin-right:8px}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:60px;padding-top:20px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dawkins for Customer Success</h1>
+  <p>An AI assistant that drafts every reply, a person reviews it before it ships, and the assistant gets smarter every time someone corrects it. No engineer needed to teach it.</p>
+</header>
+
+<main>
+
+<!-- the plain-English explainer -->
+<section>
+  <h2>The idea in one paragraph</h2>
+  <div class="card">
+    A customer asks a question. Dawkins (our AI) writes a draft reply using the customer's question plus everything the team has corrected before. A real CS person reads the draft and either <b style="color:var(--good)">approves it</b>, <b style="color:var(--warn)">edits it</b>, or <b style="color:var(--bad)">rewrites it</b>. Whatever the human ends up sending is saved as a lesson — so the next time a similar question comes in, Dawkins drafts a better reply on its own. The CS team teaches the assistant just by doing their job.
+  </div>
+</section>
+
+<!-- the diagram -->
+<section>
+  <h2>How it flows</h2>
+  <div class="card">
+    <div class="legend">
+      <span><span class="dot" style="background:var(--customer)"></span>Customer</span>
+      <span><span class="dot" style="background:var(--ai)"></span>Dawkins (AI)</span>
+      <span><span class="dot" style="background:var(--human)"></span>CS Person</span>
+      <span><span class="dot" style="background:var(--memory)"></span>Memory (lessons)</span>
+    </div>
+
+    <svg viewBox="0 0 1100 460" class="diagram" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/>
+        </marker>
+        <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ffd479"/>
+        </marker>
+      </defs>
+
+      <!-- 1 customer -->
+      <g class="node node-customer">
+        <rect x="30" y="180" width="170" height="80"/>
+        <text x="115" y="215" text-anchor="middle" font-weight="600">Customer</text>
+        <text x="115" y="235" text-anchor="middle" class="small">asks a question</text>
+      </g>
+
+      <!-- 2 dawkins -->
+      <g class="node node-ai">
+        <rect x="280" y="180" width="200" height="80"/>
+        <text x="380" y="210" text-anchor="middle" font-weight="600">Dawkins</text>
+        <text x="380" y="230" text-anchor="middle" class="small">drafts a reply using</text>
+        <text x="380" y="246" text-anchor="middle" class="small">help docs + past lessons</text>
+      </g>
+
+      <!-- 3 CS human -->
+      <g class="node node-human">
+        <rect x="560" y="180" width="200" height="80"/>
+        <text x="660" y="210" text-anchor="middle" font-weight="600">CS person</text>
+        <text x="660" y="230" text-anchor="middle" class="small">approves · edits · rewrites</text>
+        <text x="660" y="246" text-anchor="middle" class="small">in one click</text>
+      </g>
+
+      <!-- 4 customer reply -->
+      <g class="node node-customer">
+        <rect x="840" y="180" width="220" height="80"/>
+        <text x="950" y="215" text-anchor="middle" font-weight="600">Reply sent</text>
+        <text x="950" y="235" text-anchor="middle" class="small">customer gets the answer</text>
+      </g>
+
+      <!-- 5 memory -->
+      <g class="node node-memory">
+        <rect x="430" y="350" width="240" height="80"/>
+        <text x="550" y="380" text-anchor="middle" font-weight="600">Memory</text>
+        <text x="550" y="400" text-anchor="middle" class="small">saves the human-approved version</text>
+        <text x="550" y="416" text-anchor="middle" class="small">as a lesson for next time</text>
+      </g>
+
+      <!-- arrows -->
+      <path class="arrow" d="M200,220 L278,220"/>
+      <path class="arrow" d="M480,220 L558,220"/>
+      <path class="arrow" d="M760,220 L838,220"/>
+
+      <!-- loop -->
+      <path class="arrow-loop" d="M660,260 C660,310 600,330 555,350"/>
+      <text x="685" y="305" class="lbl">2. lesson saved</text>
+
+      <path class="arrow-loop" d="M540,350 C480,330 420,310 380,260"/>
+      <text x="370" y="305" class="lbl" text-anchor="end">3. next time, smarter draft</text>
+
+      <text x="240" y="170" class="lbl">1. question in</text>
+      <text x="800" y="170" class="lbl">4. answer out</text>
+    </svg>
+
+    <p style="color:var(--muted);margin:14px 0 0;font-size:14px">The dotted yellow arrows are the part that's new: every approval, edit, or rewrite becomes a memory the AI uses on the next question. <b style="color:var(--ink)">The team trains it by working — no engineer required.</b></p>
+  </div>
+</section>
+
+<!-- step cards -->
+<section>
+  <h2>What changes for the CS team</h2>
+  <div class="grid two">
+    <div class="step-card">
+      <h3><span class="num">1</span>Day one</h3>
+      <p style="margin:0;color:var(--muted)">Dawkins drafts replies based on help-center docs. Drafts are okay but generic. The team mostly <b style="color:var(--warn)">edits</b> before sending.</p>
+    </div>
+    <div class="step-card">
+      <h3><span class="num">2</span>Week two</h3>
+      <p style="margin:0;color:var(--muted)">Drafts now match the team's actual tone and structure. <b style="color:var(--good)">Approve</b> rate climbs because past edits became lessons.</p>
+    </div>
+    <div class="step-card">
+      <h3><span class="num">3</span>Month one</h3>
+      <p style="margin:0;color:var(--muted)">Common questions become one-click approvals. CS time shifts from typing replies to handling the genuinely hard tickets.</p>
+    </div>
+    <div class="step-card">
+      <h3><span class="num">4</span>Always</h3>
+      <p style="margin:0;color:var(--muted)">A human ships every reply. The AI never reaches the customer alone. Quality bar = whatever the team accepts.</p>
+    </div>
+  </div>
+</section>
+
+<!-- INTERACTIVE FAKE DEMO -->
+<section>
+  <h2>Try it — see one customer conversation play out</h2>
+  <p style="color:var(--muted);margin-top:-6px">A single customer chats with us across two questions. Watch how Dawkins handles the easy one on its own, then pings a person when it's not sure.</p>
+
+  <div class="demo">
+    <div class="chat">
+      <div class="chat-head">
+        <div class="who">Customer chat <span class="pill" id="status">ready</span></div>
+        <div class="pill">demo · no real customers</div>
+      </div>
+
+      <div class="stream" id="stream">
+        <div class="msg customer" style="align-self:center;background:transparent;border:none;color:var(--muted);font-size:13px">
+          Click "Start conversation" to begin.
+        </div>
+      </div>
+
+      <div class="actions" id="actions" style="display:none">
+        <div class="row" id="action-buttons">
+          <button class="primary" onclick="finalize('approve')">✓ Approve & send</button>
+          <button class="warn" onclick="showEdit()">✎ Edit</button>
+          <button class="bad" onclick="showRewrite()">✗ Reject & rewrite</button>
+        </div>
+        <div id="edit-zone" style="display:none">
+          <textarea id="edit-text" placeholder="Edit the draft..."></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" onclick="finalize('edit')">Send edited</button>
+            <button onclick="hideEdit()">Cancel</button>
+          </div>
+        </div>
+        <div class="hint">Whatever you send becomes a lesson. Next time a similar question comes in, Dawkins drafts using your version.</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <h4>Run the demo</h4>
+        <div class="scenarios">
+          <button id="btn-start" onclick="startDemo()">▶ Start conversation</button>
+          <button id="btn-next" onclick="nextTurn()" style="display:none">→ Next customer message</button>
+          <button onclick="resetDemo()">↺ Reset</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Dawkins console</h4>
+        <div id="console" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;color:var(--muted);max-height:280px;overflow-y:auto;background:#0b0e14;border:1px solid var(--line);border-radius:8px;padding:10px">
+          <div style="color:var(--muted)">Waiting…</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>Memory (lessons learned)</h4>
+        <div id="memory-list">
+          <div class="mem-item" style="color:var(--muted)">No lessons yet.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h4>This session</h4>
+        <div class="stat"><span>Replies sent</span><span id="stat-sent">0</span></div>
+        <div class="stat"><span>Auto-answered</span><span id="stat-auto">0</span></div>
+        <div class="stat"><span>Human-reviewed</span><span id="stat-human">0</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Demo prototype · no real customers, no real AI calls · Dawkins for CS · HqO
+</footer>
+
+</main>
+
+<script>
+  // One customer, two turns. Turn 1 = easy (auto-answer). Turn 2 = unsure (escalate).
+  const customerName = "Jamie at 50 Liberty";
+  const turns = [
+    {
+      kind: 'auto',
+      q: "Hey — I forgot my password for the tenant app. How do I reset it?",
+      console: [
+        {t: 80,   line: "→ message received from " + customerName},
+        {t: 220,  line: "→ classify intent…"},
+        {t: 520,  line: "  intent = account.password_reset"},
+        {t: 720,  line: "→ recall similar past tickets…"},
+        {t: 1020, line: "  found 412 prior cases · 99% approval rate"},
+        {t: 1180, line: "→ confidence = 0.97 (HIGH)"},
+        {t: 1340, line: "→ policy: auto-answer threshold 0.85 → AUTO-SEND"},
+        {t: 1620, line: "→ reply dispatched to customer"},
+        {t: 1800, line: "✓ no human needed"}
+      ],
+      reply: "Hey Jamie! Quickest fix: tap \"Forgot password\" on the login screen — you'll get a reset link by email within a minute or two. If it doesn't show up, peek in spam, and ping us back if it's still missing.",
+      reason: "Matches FAQ pattern (412 prior cases, 99% approval). Auto-sent."
+    },
+    {
+      kind: 'escalate',
+      q: "Thanks! Quick follow-up — one of the other people on my team got locked out. Can I reset their password from my account, or do you need to do it?",
+      console: [
+        {t: 80,   line: "→ message received from " + customerName},
+        {t: 220,  line: "→ classify intent…"},
+        {t: 520,  line: "  intent = account.password_reset_other_user"},
+        {t: 720,  line: "→ recall similar past tickets…"},
+        {t: 1020, line: "  found 3 prior cases · mixed outcomes (edited 2/3)"},
+        {t: 1180, line: "→ check policy: cross-user account action"},
+        {t: 1340, line: "  ⚠ permission boundary unclear (admin vs tenant)"},
+        {t: 1500, line: "→ confidence = 0.41 (LOW)"},
+        {t: 1660, line: "→ below auto-answer threshold → DRAFT + PAGE HUMAN"},
+        {t: 1820, line: "→ send holding reply to customer (\"checking with a colleague\")"},
+        {t: 2000, line: "⏸ awaiting CS review…"}
+      ],
+      draft: "You can't reset another user's password from your own account, but an admin on your account can do it from Tenants → [user] → Resend Invite.",
+      reason: "Cross-user account action — only 3 prior similar cases, mixed outcomes. Pinged a human."
+    }
+  ];
+
+  let turnIdx = 0;
+  let stats = {sent:0, auto:0, human:0};
+  let memoryLog = [];
+
+  const $ = id => document.getElementById(id);
+  function setStatus(s){ $('status').textContent = s; }
+
+  function startDemo(){
+    resetDemo();
+    $('btn-start').style.display = 'none';
+    runTurn(0);
+  }
+
+  function resetDemo(){
+    turnIdx = 0;
+    stats = {sent:0, auto:0, human:0};
+    memoryLog = [];
+    $('stream').innerHTML = '<div class="msg customer" style="align-self:center;background:transparent;border:none;color:var(--muted);font-size:13px">— start of conversation with ' + escapeHtml(customerName) + ' —</div>';
+    $('console').innerHTML = '<div style="color:var(--muted)">Waiting…</div>';
+    $('memory-list').innerHTML = '<div class="mem-item" style="color:var(--muted)">No lessons yet.</div>';
+    $('actions').style.display = 'none';
+    $('btn-start').style.display = '';
+    $('btn-next').style.display = 'none';
+    setStatus('ready');
+    refreshSidebar();
+  }
+
+  function runTurn(i){
+    if(i >= turns.length){
+      setStatus('conversation complete');
+      $('btn-next').style.display = 'none';
+      return;
+    }
+    turnIdx = i;
+    const t = turns[i];
+    addMsg('customer', customerName, t.q);
+    $('console').innerHTML = '';
+    setStatus('Dawkins thinking…');
+    $('actions').style.display = 'none';
+    $('btn-next').style.display = 'none';
+
+    // play console lines on a timeline
+    t.console.forEach(step => {
+      setTimeout(() => logConsole(step.line), step.t);
+    });
+
+    const finalT = t.console[t.console.length-1].t + 200;
+    setTimeout(() => {
+      if(t.kind === 'auto'){
+        addMsg('auto', 'Dawkins → Sent to customer', t.reply, {cls:'auto', text:'AUTO-ANSWERED'}, t.reason);
+        stats.auto++; stats.sent++;
+        memoryLog.unshift({q: t.q.slice(0,80), a: t.reply.slice(0,100)+'…', kind:'auto'});
+        refreshSidebar();
+        setStatus('handled by Dawkins · no human needed');
+        // offer next turn
+        setTimeout(() => { $('btn-next').style.display = ''; }, 600);
+      } else {
+        addMsg('auto', 'Dawkins → Sent to customer', "Good question — let me check with a colleague on that and get right back to you.", {cls:'auto', text:'HOLDING REPLY'}, 'Low confidence: buying time while a human reviews.');
+        setTimeout(() => {
+          addMsg('unsure', 'Dawkins · not sure, needs your eyes', t.draft, {cls:'help', text:'NEEDS REVIEW'}, t.reason);
+          setStatus('paged a human · awaiting review');
+          $('actions').style.display = 'block';
+          $('edit-text').value = t.draft;
+          hideEdit();
+        }, 900);
+      }
+    }, finalT);
+  }
+
+  function nextTurn(){ runTurn(turnIdx + 1); }
+
+  function logConsole(text){
+    const c = $('console');
+    if(c.firstChild && c.firstChild.textContent === 'Waiting…') c.innerHTML = '';
+    const d = document.createElement('div');
+    d.textContent = text;
+    if(text.startsWith('→')) d.style.color = '#7cc4ff';
+    else if(text.startsWith('✓')) d.style.color = '#7ee2a8';
+    else if(text.startsWith('⏸') || text.includes('⚠')) d.style.color = '#ffd479';
+    c.appendChild(d);
+    c.scrollTop = c.scrollHeight;
+  }
+
+  function addMsg(cls, who, text, badge, reason){
+    const stream = $('stream');
+    const m = document.createElement('div');
+    m.className = 'msg ' + cls;
+    const w = document.createElement('div'); w.className='who'; w.textContent = who;
+    if(badge){
+      const b = document.createElement('span');
+      b.className = 'badge ' + badge.cls;
+      b.textContent = badge.text;
+      w.appendChild(b);
+    }
+    const body = document.createElement('div'); body.textContent = text;
+    m.appendChild(w); m.appendChild(body);
+    if(reason){
+      const r = document.createElement('div');
+      r.style.cssText = 'font-size:11px;color:var(--muted);margin-top:6px;font-style:italic';
+      r.textContent = '↳ ' + reason;
+      m.appendChild(r);
+    }
+    stream.appendChild(m);
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function showEdit(){ $('edit-zone').style.display='block'; $('action-buttons').style.display='none'; }
+  function hideEdit(){ $('edit-zone').style.display='none'; $('action-buttons').style.display='flex'; }
+  function showRewrite(){
+    $('edit-text').value = '';
+    showEdit();
+    $('edit-text').placeholder = 'Write the reply from scratch…';
+    $('edit-text').focus();
+  }
+
+  function finalize(kind){
+    const t = turns[turnIdx];
+    let finalText;
+    if(kind === 'approve'){
+      finalText = t.draft;
+      addMsg('final', 'Sent to customer', finalText, {cls:'appr', text:'APPROVED'});
+    } else if(kind === 'edit'){
+      finalText = $('edit-text').value.trim();
+      if(!finalText) return;
+      const isRewrite = finalText.length < t.draft.length * 0.4;
+      addMsg('final','Sent to customer', finalText, isRewrite ? {cls:'rej', text:'REWRITTEN'} : {cls:'edit', text:'EDITED'});
+    }
+    stats.human++; stats.sent++;
+    memoryLog.unshift({q: t.q.slice(0,80), a: finalText.slice(0,100)+(finalText.length>100?'…':''), kind});
+    logConsole('→ human ' + kind.toUpperCase() + ' · finalized');
+    logConsole('→ retain to Hindsight: {question, draft, final, intervention=' + kind + '}');
+    logConsole('✓ lesson saved · Dawkins more confident next time');
+    refreshSidebar();
+    $('actions').style.display = 'none';
+    setStatus('reply sent · lesson saved');
+    setTimeout(() => {
+      if(turnIdx + 1 < turns.length) $('btn-next').style.display = '';
+      else setStatus('conversation complete');
+    }, 600);
+  }
+
+  function refreshSidebar(){
+    $('stat-sent').textContent  = stats.sent;
+    $('stat-auto').textContent  = stats.auto;
+    $('stat-human').textContent = stats.human;
+    const ml = $('memory-list');
+    if(memoryLog.length === 0){
+      ml.innerHTML = '<div class="mem-item" style="color:var(--muted)">No lessons yet.</div>';
+      return;
+    }
+    ml.innerHTML = memoryLog.slice(0,5).map(m=>`
+      <div class="mem-item">
+        <div class="q">Q: ${escapeHtml(m.q)}</div>
+        <div>A: ${escapeHtml(m.a)}</div>
+      </div>`).join('');
+  }
+  function escapeHtml(s){return s.replace(/[&<>"\']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script>
+
+</body>
+</html>
